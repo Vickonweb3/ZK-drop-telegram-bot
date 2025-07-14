@@ -3,31 +3,31 @@ const { Telegraf, Markup } = require("telegraf");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
+const app = express();
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
+// 🛰️ Keep-alive route
+app.get("/", (req, res) => {
+  res.send("zkDrop Bot is alive! 🛰️");
+});
+app.listen(3000, () => {
+  console.log("🌐 Server listening on port 3000");
+});
+
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useUnifiedTopology: true
 }).then(() => {
   console.log("✅ Connected to MongoDB");
 }).catch((err) => {
   console.error("❌ MongoDB connection error:", err);
 });
 
-const app = express();
-app.get("/", (req, res) => {
-  res.send("zkDrop Bot is alive! 🛰️");
-});
-app.listen(3000, () => {
-  console.log("🌐 Keep-alive server running on port 3000");
-});
-
-// ✅ Use bot token from .env
-const bot = new Telegraf(process.env.BOT_TOKEN);
-
-// ✅ Admin Panel (create `admin.js` for custom admin logic)
+// ✅ Register Admin Panel
 require("./admin")(bot);
 
-// 🚀 Telegram Bot Commands
+// ✅ Telegram Bot Logic
 bot.start((ctx) => {
   ctx.reply(
     `👋 *Welcome to zkDrop Bot* — your Web3 Airdrop Radar 🛰️
@@ -59,13 +59,12 @@ bot.on("text", async (ctx) => {
   const text = ctx.message.text;
   if (text.startsWith("0x") && text.length === 42) {
     await ctx.reply("✅ Wallet received! You're now eligible for airdrops.");
-    // OPTIONAL: Save wallet to MongoDB here
   } else {
     await ctx.reply("❗ That doesn't look like a valid wallet address. Please try again.");
   }
 });
 
-// ✅ Start the bot
+// ✅ Launch Bot
 bot.launch().then(() => {
   console.log("🤖 zkDrop Bot is running...");
 });
