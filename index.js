@@ -54,9 +54,20 @@ bot.action("submit_wallet", async (ctx) => {
 
 bot.on("text", async (ctx) => {
   const text = ctx.message.text;
-  if (text.startsWith("0x") && text.length === 42) {
-    await ctx.reply("✅ Wallet received! You're now eligible for airdrops.");
-    // Optional: Save to MongoDB
+if (text.startsWith("0x") && text.length === 42) {
+  const User = require("./models/User");
+
+  const existing = await User.findOne({ userId: ctx.from.id });
+  if (!existing) {
+    await User.create({
+      userId: ctx.from.id,
+      username: ctx.from.username,
+      wallet: text,
+    });
+  }
+
+  await ctx.reply("✅ Wallet received and saved! You're now eligible for airdrops.");
+}
   } else {
     await ctx.reply("❗ That doesn't look like a valid wallet address. Please try again.");
   }
