@@ -1,21 +1,49 @@
-const User = require("./models/User");
+const User = require("./models/userModel");
 
-module.exports = (bot) => {
-  const ADMIN_ID = "7428947778"; // Your Telegram ID
+async function handleAdminCommands(ctx, bot) {
+  const telegramId = ctx.from.id.toString();
 
-  bot.command("users", async (ctx) => {
-    if (String(ctx.from.id) !== ADMIN_ID) return;
+  // Check if user is an admin
+  const adminUser = await User.findOne({ telegramId, isAdmin: true });
+  if (!adminUser) {
+    return ctx.reply("🚫 You don't have permission to use admin commands.");
+  }
 
-    const users = await User.find();
-    if (users.length === 0) {
-      return ctx.reply("❗ No users have submitted wallets yet.");
+  const command = ctx.message.text;
+
+  // Broadcast command
+  if (command.startsWith("/broadcast ")) {
+    const message = command.replace("/broadcast ", "").trim();
+
+    const users = await User.find({});
+    let successCount = 0;
+
+    for (const user of users) {
+      try {
+        await bot.telegram.sendMessage(user.telegramId, `📢 Broadcast:\n\n${message}`);
+        successCount++;
+      } catch (err) {
+        console.log(`❌ Failed to send to ${user.telegramId}:`, err.message);
+      }
     }
 
-    let message = `📦 *Submitted Wallets:*\n\n`;
-    users.forEach((u, i) => {
-      message += `${i + 1}. @${u.username || "N/A"} - ${u.wallet}\n`;
-    });
+    return ctx.reply(`✅ Broadcast sent to ${successCount} users.`);
+  }
 
-    ctx.reply(message, { parse_mode: "Markdown" });
-  });
-};
+  // Stats command
+  if (command === "/stats") {
+    const totalUsers = await User.countDocuments();
+    return ctx.reply(`📊 Total registered users: ${totalUsers}`);
+  }
+
+  // List Users (optional)
+  if (command === "/users") {
+    const users = await User.find({});
+    const userList = users.map((u) => `@${u.username || "N/A"} | ${u.wallet || "No Wallet"}`).join("\n");
+    return ctx.reply(userList.length ? userList : "No users found.");
+  }
+
+  return ctx.reply("❓ Unknown admin command.");
+}
+
+module.exports = handleAdminCommands;
