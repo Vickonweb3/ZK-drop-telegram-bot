@@ -1,10 +1,21 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-  userId: String,
+  telegramId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   username: String,
   wallet: String,
-  date: { type: Date, default: Date.now },
+  isAdmin: {
+    type: Boolean,
+    default: false,
+  },
+  joinedAt: {
+    type: Date,
+    default: Date.now,
+  }
 });
 
 module.exports = mongoose.model("User", userSchema);
