@@ -1,81 +1,80 @@
 const { Telegraf } = require("telegraf");
 const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-const User = require("./models/User");
+require("dotenv").config();
 
-dotenv.config();
-
-// Bot & Admin Info
 const bot = new Telegraf(process.env.BOT_TOKEN);
-const adminId = "7428947778";
 
-// Connect MongoDB
+// Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useUnifiedTopology: true
 }).then(() => {
-  console.log("✅ MongoDB connected");
-}).catch((err) => {
-  console.error("❌ MongoDB error:", err);
+  console.log("✅ MongoDB connected successfully");
+}).catch(err => {
+  console.error("❌ MongoDB connection error:", err);
 });
 
-// Start Command
+// Admin ID (yours)
+const ADMIN_ID = "7428947778";
+
+// Simple user schema
+const User = mongoose.model("User", new mongoose.Schema({
+  userId: String,
+  username: String,
+  joinedAt: { type: Date, default: Date.now }
+}));
+
+// Start command
 bot.start(async (ctx) => {
-  await ctx.reply(
-    `👋 *Welcome to zkDrop Bot* — your Web3 Airdrop Radar 🛰️\n\nTo qualify for current and future airdrops:\n🔹 Follow our Twitter 👉 https://x.com/VickOnWeb3\n🔹 Submit your wallet address\n\n👇 Tap below to start:`,
-    { parse_mode: "Markdown" }
-  );
-});
+  const user = await User.findOne({ userId: ctx.from.id.toString() });
 
-// Handle Wallet Submissions
-bot.on("text", async (ctx) => {
-  const text = ctx.message.text.trim();
-  const walletRegex = /^0x[a-fA-F0-9]{40}$/;
-
-  if (walletRegex.test(text)) {
-    const existing = await User.findOne({ userId: ctx.from.id });
-    if (existing) {
-      existing.wallet = text;
-      await existing.save();
-    } else {
-      await User.create({
-        userId: ctx.from.id,
-        username: ctx.from.username || "N/A",
-        wallet: text,
-      });
-    }
-
-    await ctx.reply("✅ Wallet received and saved! You're now eligible for airdrops.");
-  } else {
-    await ctx.reply("❗ That doesn't look like a valid wallet address. Please try again.");
+  if (!user) {
+    await User.create({
+      userId: ctx.from.id,
+      username: ctx.from.username || "unknown"
+    });
   }
+
+  const welcomeMessage = `👋 *Welcome to zkDrop Bot* — your Web3 Airdrop Radar 🛰️
+
+To qualify for current and future airdrops:
+🔹 Follow our Twitter 👉 https://x.com/VickOnWeb3
+🔹 Submit your wallet address
+
+👇 Tap below to start:`;
+
+  await ctx.reply(welcomeMessage, { parse_mode: "Markdown" });
 });
 
-// Admin Broadcast
-bot.command("broadcast", async (ctx) => {
-  if (ctx.from.id.toString() !== adminId) return;
+// Wallet command (example)
+bot.command("wallet", (ctx) => {
+  ctx.reply("📝 Please reply with your wallet address.");
+});
 
-  const message = ctx.message.text.split(" ").slice(1).join(" ");
-  if (!message) return ctx.reply("❗ Please enter a message to broadcast.");
+// Admin broadcast
+bot.command("broadcast", async (ctx) => {
+  if (ctx.from.id.toString() !== ADMIN_ID) {
+    return ctx.reply("❌ You are not authorized to use this command.");
+  }
+
+  const msg = ctx.message.text.split(" ").slice(1).join(" ");
+  if (!msg) return ctx.reply("Please provide a message to broadcast.");
 
   const users = await User.find({});
-  let count = 0;
+  let success = 0;
 
   for (const user of users) {
     try {
-      await bot.telegram.sendMessage(user.userId, `📢 *Admin Broadcast:*\n${message}`, {
-        parse_mode: "Markdown",
-      });
-      count++;
+      await bot.telegram.sendMessage(user.userId, msg);
+      success++;
     } catch (err) {
-      console.error(`Failed to message ${user.userId}:`, err.message);
+      console.log("Failed to send to", user.userId);
     }
   }
 
-  ctx.reply(`✅ Broadcast sent to ${count} users.`);
+  ctx.reply(`✅ Broadcast sent to ${success} users.`);
 });
 
-// Launch Bot
-bot.launch().then(() => {
-  console.log("🤖 zkDrop Bot is running...");
-});
+// Launch
+bot.launch();
+console.log("🤖 zkDrop Bot is running...");
